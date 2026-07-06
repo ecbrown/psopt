@@ -65,7 +65,9 @@ ExternalProject_Add(ep_eigen
 # autotools; builds cleanly under GNU gcc.
 ExternalProject_Add(ep_colpack
   GIT_REPOSITORY https://github.com/CSCsw/ColPack.git GIT_TAG v1.0.10 GIT_SHALLOW TRUE
-  CONFIGURE_COMMAND cd <SOURCE_DIR> && autoreconf -fi && <SOURCE_DIR>/configure --prefix=${SB_INSTALL} CC=${SB_CC} CXX=${SB_CXX}
+  # --disable-dependency-tracking: newer automake (e.g. Ubuntu 26.04) fails to
+  # bootstrap ColPack's dep-tracking makefile fragments; disabling is safe here.
+  CONFIGURE_COMMAND cd <SOURCE_DIR> && autoreconf -fi && <SOURCE_DIR>/configure --prefix=${SB_INSTALL} --disable-dependency-tracking CC=${SB_CC} CXX=${SB_CXX}
   BUILD_COMMAND cd <SOURCE_DIR> && make -j
   INSTALL_COMMAND cd <SOURCE_DIR> && make install
   BUILD_IN_SOURCE 1)
@@ -80,7 +82,7 @@ ExternalProject_Add(ep_adolc
   # macOS rejects the undefined ColPack symbols ADOL-C 2.7.2 leaves in
   # libadolc.dylib (its Makefile doesn't add -lColPack to the shared lib, which
   # only Linux tolerates). Link ColPack explicitly via LDFLAGS/LIBS.
-  CONFIGURE_COMMAND ln -sfn lib ${SB_INSTALL}/lib64 && cd <SOURCE_DIR> && <SOURCE_DIR>/configure --prefix=${SB_INSTALL} --with-colpack=${SB_INSTALL} --enable-sparse CC=${SB_CC} CXX=${SB_CXX} "LDFLAGS=-L${SB_INSTALL}/lib -Wl,-rpath,${SB_INSTALL}/lib" "LIBS=-lColPack"
+  CONFIGURE_COMMAND ln -sfn lib ${SB_INSTALL}/lib64 && cd <SOURCE_DIR> && <SOURCE_DIR>/configure --prefix=${SB_INSTALL} --with-colpack=${SB_INSTALL} --enable-sparse --disable-dependency-tracking CC=${SB_CC} CXX=${SB_CXX} "LDFLAGS=-L${SB_INSTALL}/lib -Wl,-rpath,${SB_INSTALL}/lib" "LIBS=-lColPack"
   BUILD_COMMAND cd <SOURCE_DIR> && make -j
   INSTALL_COMMAND cd <SOURCE_DIR> && make install
   BUILD_IN_SOURCE 1)
