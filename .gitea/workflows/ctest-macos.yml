@@ -1,0 +1,30 @@
+# macOS-native ctest for a self-hosted Gitea act_runner using the HOST executor
+# (no Docker). Runs on a runner registered with the label `macos-native`, using
+# the toolchain + IPOPT already installed on that machine. Optional backends
+# (CASADI/SCIP/pardiso) that are absent simply GTEST_SKIP, so the suite stays green.
+name: ctest-macos
+
+on:
+  push:
+    paths-ignore: [ '**.md', 'docs/**', 'wiki/**' ]
+  workflow_dispatch:
+
+jobs:
+  ctest-macos:
+    runs-on: macos-native
+    env:
+      IPOPT_ROOT: /opt/claude/ipopt
+      PKG_CONFIG_PATH: /opt/claude/ipopt/lib/pkgconfig:/opt/local/lib/pkgconfig
+      DYLD_LIBRARY_PATH: /opt/claude/ipopt/lib:/opt/local/lib
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (BUILD_TESTS=ON, clang auto-selected)
+        run: cmake -B build -G Ninja -DIPOPT_ROOT="$IPOPT_ROOT" -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
+
+      - name: Build PSOPT + test suite
+        run: cmake --build build -j3
+
+      - name: Run ctest
+        working-directory: build
+        run: ctest --output-on-failure
