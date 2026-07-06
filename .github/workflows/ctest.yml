@@ -24,12 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure (BUILD_TESTS=ON)
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
+      - name: Configure (unit + example tests; HEADLESS so gnuplot writes PDFs)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_EXAMPLES=ON -DHEADLESS=ON
 
-      - name: Build PSOPT + test suite
+      - name: Build PSOPT + test suite + examples
         run: cmake --build build -j$(nproc)
 
-      - name: Run ctest
+      - name: Run ctest (unit + all examples; per-test threads pinned)
         working-directory: build
-        run: ctest --output-on-failure
+        run: ctest --output-on-failure -j$(nproc)
