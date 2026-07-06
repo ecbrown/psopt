@@ -62,3 +62,36 @@ add_subdirectory(singular_di/)
 add_subdirectory(mineng_di/)
 add_subdirectory(mineng_free_vf/)
 add_subdirectory(mineng_target_set/)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Register every example as a ctest test (only when BUILD_TESTS is ON).
+# Each example runs UNMODIFIED in its own build dir and must report an objective
+# ("cost function value") without crashing. No exact-cost pin, so re-tuning a
+# model parameter does not spuriously fail the test. A model-parameter value may
+# be overridden at run time via the environment (PSOPT_P_<NAME>) where an example
+# opts in with getenv-defaulted constants; the problem statement is unchanged.
+# ─────────────────────────────────────────────────────────────────────────────
+if(BUILD_TESTS)
+  file(GLOB _ex_children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
+  foreach(_c ${_ex_children})
+    if(TARGET ${_c})
+      # SCIP demonstrators require a SCIP-enabled build; skip them otherwise.
+      set(_reg TRUE)
+      if(_c MATCHES "^scip" AND NOT PSOPT_WITH_SCIP)
+        set(_reg FALSE)
+      endif()
+      if(_reg)
+        add_test(NAME example_${_c} COMMAND ${_c} WORKING_DIRECTORY $<TARGET_FILE_DIR:${_c}>)
+        # Pass = the FINAL success summary line is printed. That line appears only
+        # when the overall solve succeeds, so a crash or non-convergence omits it;
+        # intermediate mesh-refinement "problem FAILED" messages are (correctly)
+        # ignored. Pin BLAS/OpenMP to 1 thread so `ctest -j` does not oversubscribe
+        # CPUs (each example's IPOPT/OpenBLAS is otherwise multi-threaded).
+        set_tests_properties(example_${_c} PROPERTIES
+          TIMEOUT 1200
+          ENVIRONMENT "OPENBLAS_NUM_THREADS=1;OMP_NUM_THREADS=1;MKL_NUM_THREADS=1"
+          PASS_REGULAR_EXPRESSION "Optimal .unscaled. cost function value")
+      endif()
+    endif()
+  endforeach()
+endif()

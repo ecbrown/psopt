@@ -199,11 +199,13 @@ endif()
 # ────────────────────────────────────────────────────────────────
 # EXAMPLES / TESTS
 # ────────────────────────────────────────────────────────────────
+if(BUILD_TESTS OR BUILD_EXAMPLES)
+  enable_testing()   # must precede any add_test() in the subdirectories below
+endif()
 if(BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 if(BUILD_TESTS)
-  enable_testing()   # so `ctest` works from the top-level build directory
   add_subdirectory(tests)
 endif()
 
