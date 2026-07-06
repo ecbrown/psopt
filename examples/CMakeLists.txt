@@ -95,3 +95,26 @@ if(BUILD_TESTS)
     endif()
   endforeach()
 endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Model-parameter-EFFECT demonstration (problem statement unchanged).
+# bryson_denham's state bound L (constraint x1 <= L) is overridable via the
+# env var PSOPT_P_L (default 1/9). The analytical optimum is J*(L) = 4/(9 L),
+# so a tighter bound raises the cost. These tests change only the parameter
+# VALUE — the constraint is neither added, removed, nor otherwise altered — and
+# check the measured objective matches J*(L) at three values.
+# ─────────────────────────────────────────────────────────────────────────────
+if(BUILD_TESTS AND TARGET bryson_denham)
+  set(_bd_dir $<TARGET_FILE_DIR:bryson_denham>)
+  set(_bd_thr "OPENBLAS_NUM_THREADS=1;OMP_NUM_THREADS=1;MKL_NUM_THREADS=1")
+  # (name  L-value  expected-cost-prefix)  where J* = 4/(9 L)
+  add_test(NAME param_bryson_L_1over6  COMMAND bryson_denham WORKING_DIRECTORY ${_bd_dir})
+  add_test(NAME param_bryson_L_1over9  COMMAND bryson_denham WORKING_DIRECTORY ${_bd_dir})
+  add_test(NAME param_bryson_L_1over12 COMMAND bryson_denham WORKING_DIRECTORY ${_bd_dir})
+  set_tests_properties(param_bryson_L_1over6  PROPERTIES ENVIRONMENT "PSOPT_P_L=0.1666667;${_bd_thr}"
+    PASS_REGULAR_EXPRESSION "cost function value:.*2\\.66")   # 4/(9/6) = 2.667
+  set_tests_properties(param_bryson_L_1over9  PROPERTIES ENVIRONMENT "PSOPT_P_L=0.1111111;${_bd_thr}"
+    PASS_REGULAR_EXPRESSION "cost function value:.*3\\.99")   # 4/(9/9) = 4.000
+  set_tests_properties(param_bryson_L_1over12 PROPERTIES ENVIRONMENT "PSOPT_P_L=0.0833333;${_bd_thr}"
+    PASS_REGULAR_EXPRESSION "cost function value:.*5\\.33")   # 4/(9/12) = 5.333
+endif()
