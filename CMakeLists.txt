@@ -41,14 +41,25 @@ if(PSOPT_AUTO_COMPILER AND NOT CMAKE_CXX_COMPILER AND NOT DEFINED ENV{CXX} AND N
       /ucrt64/bin /mingw64/bin                         # MSYS2 (in MSYS shell)
       /usr/pkg/bin                                     # NetBSD pkgsrc
       /usr/local/bin /usr/bin)                         # *BSD / Linux / generic
-  # (C++|C) candidate pairs, most-preferred first: versioned GNU, generic GNU,
-  # OpenBSD egcc/eg++, then Clang.  MSVC is the implicit fallback (leave unset).
-  set(_cxx_cc_pairs
-      "g++-mp-15|gcc-mp-15" "g++-mp-14|gcc-mp-14" "g++-mp-13|gcc-mp-13"   # MacPorts
-      "g++-15|gcc-15" "g++-14|gcc-14" "g++-13|gcc-13" "g++-12|gcc-12" "g++-11|gcc-11"
-      "g++|gcc" "eg++|egcc"                                               # generic GNU / OpenBSD
-      "clang++|clang" "clang++-20|clang-20" "clang++-19|clang-19"
-      "clang++-18|clang-18" "clang++-17|clang-17")
+  # (C++|C) candidate pairs, most-preferred first.  GNU is favoured EXCEPT on
+  # macOS, where Apple's SDK headers clash with GCC (e.g. GoogleTest's
+  # <mach/*.h>) -- there clang is preferred so `cmake -B build && ctest` works
+  # out of the box (GCC still reachable via -DCMAKE_CXX_COMPILER=g++-mp-15).
+  # MSVC is the implicit fallback (leave unset).
+  if(CMAKE_HOST_APPLE)
+    set(_cxx_cc_pairs
+        "clang++|clang"                                                  # Apple / MacPorts clang
+        "clang++-20|clang-20" "clang++-19|clang-19" "clang++-18|clang-18"
+        "g++-mp-15|gcc-mp-15" "g++-mp-14|gcc-mp-14"                       # GCC fallback (MacPorts)
+        "g++-15|gcc-15" "g++-14|gcc-14" "g++|gcc")
+  else()
+    set(_cxx_cc_pairs
+        "g++-mp-15|gcc-mp-15" "g++-mp-14|gcc-mp-14" "g++-mp-13|gcc-mp-13" # MacPorts (non-Apple hosts too)
+        "g++-15|gcc-15" "g++-14|gcc-14" "g++-13|gcc-13" "g++-12|gcc-12" "g++-11|gcc-11"
+        "g++|gcc" "eg++|egcc"                                             # generic GNU / OpenBSD
+        "clang++|clang" "clang++-20|clang-20" "clang++-19|clang-19"
+        "clang++-18|clang-18" "clang++-17|clang-17")
+  endif()
   foreach(_pair IN LISTS _cxx_cc_pairs)
     string(REPLACE "|" ";" _pc "${_pair}")
     list(GET _pc 0 _cxx_name)
