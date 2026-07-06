@@ -1,16 +1,23 @@
-# PSOPT test suite (ctest) for GitLab CI.
-# Equivalent to the GitHub-Actions .github/.gitea/.forgejo workflows.
-# Reuses the pre-built PSOPT CI image (IPOPT/ADOL-C/Eigen installed). If that image
-# is unavailable, swap `image:` for a base ubuntu image and build the dependencies
-# from source with -DPSOPT_SUPERBUILD=ON.
+# GitLab CI for PSOPT (works on GitLab.com shared runners -- self-contained).
+#
+# apt's ADOL-C is built WITHOUT ColPack (so sparse_jac throws) and ships an
+# ancient IPOPT, so we build the dependency stack (Eigen/ColPack/ADOL-C/MUMPS/
+# IPOPT) from source via the superbuild, then a find-path build of PSOPT + the
+# GoogleTest suite. No private image or registry needed.
+#
+# NB: the superbuild is ~30-40 min, so this burns CI minutes. For fast runs,
+# build the deps once into an image, push it to registry.gitlab.com/ecbrown/psopt,
+# and replace `image:` + the superbuild steps with a plain configure/build/ctest.
 stages:
   - test
 
-ctest:
+ctest-linux:
   stage: test
-  image: ghcr.io/psopt/psopt-ci:latest
+  image: ubuntu:24.04
+  variables:
+    DEBIAN_FRONTEND: "noninteractive"
+  timeout: 2h
   rules:
-    # run when code / build / tests change; skip docs-only commits
     - changes:
         - 'src/**/*'
         - 'include/**/*'
@@ -20,6 +27,19 @@ ctest:
         - '.gitlab-ci.yml'
     - if: '$CI_PIPELINE_SOURCE == "web"'   # manual "Run pipeline"
   script:
-    - cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
-    - cmake --build build -j$(nproc)
+    - apt-get update
+    - >
+      apt-get install -y --no-install-recommends
+      cmake ninja-build g++ gfortran git pkg-config autoconf automake libtool patch
+      ca-certificates libopenblas-dev libboost-dev libboost-system-dev libboost-filesystem-dev
+    # Phase 1: build the dependency stack from source (installs to sb/_deps/install)
+    - cmake -S . -B sb -G Ninja -DPSOPT_SUPERBUILD=ON -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+    - cmake --build sb
+    # Phase 2: find-path build of PSOPT + the test suite against those deps
+    - >
+      cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_PREFIX_PATH="$CI_PROJECT_DIR/sb/_deps/install"
+      -DIPOPT_ROOT="$CI_PROJECT_DIR/sb/_deps/install"
+      -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
+    - cmake --build build -j"$(nproc)"
     - cd build && ctest --output-on-failure
