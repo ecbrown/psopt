@@ -82,7 +82,10 @@ ExternalProject_Add(ep_adolc
   # macOS rejects the undefined ColPack symbols ADOL-C 2.7.2 leaves in
   # libadolc.dylib (its Makefile doesn't add -lColPack to the shared lib, which
   # only Linux tolerates). Link ColPack explicitly via LDFLAGS/LIBS.
-  CONFIGURE_COMMAND ln -sfn lib ${SB_INSTALL}/lib64 && cd <SOURCE_DIR> && <SOURCE_DIR>/configure --prefix=${SB_INSTALL} --with-colpack=${SB_INSTALL} --enable-sparse --disable-dependency-tracking CC=${SB_CC} CXX=${SB_CXX} "LDFLAGS=-L${SB_INSTALL}/lib -Wl,-rpath,${SB_INSTALL}/lib" "LIBS=-lColPack"
+  # --without-boost: Boost 1.69+ made Boost.System header-only, so ADOL-C 2.7.2's
+  # configure fails linking -lboost_system on newer distros (e.g. Ubuntu 26.04).
+  # Boost is only an optional pool-allocator optimisation for ADOL-C; drop it.
+  CONFIGURE_COMMAND ln -sfn lib ${SB_INSTALL}/lib64 && cd <SOURCE_DIR> && <SOURCE_DIR>/configure --prefix=${SB_INSTALL} --with-colpack=${SB_INSTALL} --enable-sparse --disable-dependency-tracking --without-boost CC=${SB_CC} CXX=${SB_CXX} "LDFLAGS=-L${SB_INSTALL}/lib -Wl,-rpath,${SB_INSTALL}/lib" "LIBS=-lColPack"
   BUILD_COMMAND cd <SOURCE_DIR> && make -j
   INSTALL_COMMAND cd <SOURCE_DIR> && make install
   BUILD_IN_SOURCE 1)
@@ -107,7 +110,7 @@ ExternalProject_Add(ep_mumps
   # `make -j` intermittently fails ("Cannot open module file 'mumps_lr_common.mod'").
   # Try parallel first, then fall back to a serial `make` which resolves the modules
   # in order and finishes whatever the parallel pass missed.
-  BUILD_COMMAND cd <SOURCE_DIR> && sh -c "make -j || make"
+  BUILD_COMMAND cd <SOURCE_DIR> && sh -c "make -j || make -j1"
   INSTALL_COMMAND cd <SOURCE_DIR> && make install
   BUILD_IN_SOURCE 1)
 
