@@ -1,0 +1,35 @@
+# PSOPT unit / Maximum-Principle / capability-matrix test suite (ctest).
+# Portable GitHub-Actions workflow -- identical copies live under
+#   .github/workflows/   (GitHub)
+#   .gitea/workflows/    (Gitea Actions)
+#   .forgejo/workflows/  (Codeberg / Forgejo Actions)
+# and an equivalent .gitlab-ci.yml (GitLab CI).
+#
+# It reuses the pre-built PSOPT CI image (IPOPT/ADOL-C/Eigen already installed).
+# If that image is unavailable on your platform, swap `container:` for a base
+# ubuntu image and build the deps from source with -DPSOPT_SUPERBUILD=ON.
+name: ctest
+
+on:
+  push:
+    paths-ignore: [ '**.md', 'docs/**', 'wiki/**' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ctest:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/psopt/psopt-ci:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (BUILD_TESTS=ON)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
+
+      - name: Build PSOPT + test suite
+        run: cmake --build build -j$(nproc)
+
+      - name: Run ctest
+        working-directory: build
+        run: ctest --output-on-failure

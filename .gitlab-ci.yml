@@ -1,0 +1,25 @@
+# PSOPT test suite (ctest) for GitLab CI.
+# Equivalent to the GitHub-Actions .github/.gitea/.forgejo workflows.
+# Reuses the pre-built PSOPT CI image (IPOPT/ADOL-C/Eigen installed). If that image
+# is unavailable, swap `image:` for a base ubuntu image and build the dependencies
+# from source with -DPSOPT_SUPERBUILD=ON.
+stages:
+  - test
+
+ctest:
+  stage: test
+  image: ghcr.io/psopt/psopt-ci:latest
+  rules:
+    # run when code / build / tests change; skip docs-only commits
+    - changes:
+        - 'src/**/*'
+        - 'include/**/*'
+        - 'tests/**/*'
+        - 'cmake/**/*'
+        - 'CMakeLists.txt'
+        - '.gitlab-ci.yml'
+    - if: '$CI_PIPELINE_SOURCE == "web"'   # manual "Run pipeline"
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
+    - cmake --build build -j$(nproc)
+    - cd build && ctest --output-on-failure
