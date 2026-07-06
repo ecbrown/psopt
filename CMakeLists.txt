@@ -101,8 +101,8 @@ option(PSOPT_WITH_SPRAL   "Build the open-source SPRAL (ssids) threaded sparse s
 option(PSOPT_WITH_SCIP    "Build SoPlex + SCIP (free MILP/MINLP solver) for mixed-integer optimal control" OFF)
 set(PSOPT_SCIP_DEP_PREFIX "/opt/local" CACHE PATH
     "Prefix providing GMP and readline for the SCIP/SoPlex build (MacPorts /opt/local, or Homebrew/apt prefix)")
-option(BUILD_EXAMPLES     "Build examples from the example subdirectory."      ON)
-option(BUILD_TESTS        "Build tests for PSOPT."                             ON)
+option(BUILD_EXAMPLES     "Build examples from the example subdirectory."      OFF)
+option(BUILD_TESTS        "Build tests for PSOPT."                             OFF)
 option(HEADLESS           "Gnuplot writes PDFs instead of spawning windows."   OFF)
 set(PSOPT_DEFAULT_LINEAR_SOLVER "mumps" CACHE STRING
     "Default IPOPT linear_solver (mumps, ma27, ma57, ma86, ma97, pardiso)")
