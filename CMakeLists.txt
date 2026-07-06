@@ -16,6 +16,60 @@ execute_process(COMMAND git describe --tags --always
   ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(TIMESTAMP PSOPT_BUILD_DATE "%Y-%m-%d %H:%M:%S")
 
+# ────────────────────────────────────────────────────────────────
+# ROBUST COMPILER SELECTION  (must precede project())
+#   Preference:  GNU  ›  Clang  ›  MSVC.
+#   Searches package managers and OSes: MacPorts, Homebrew, Fink, Nix,
+#   MSYS2 / native Windows, the BSDs (Free/Open/Net/DragonFly), and Linux.
+#   An explicit -DCMAKE_CXX_COMPILER=... (or $CXX / a toolchain file) always
+#   wins; set -DPSOPT_AUTO_COMPILER=OFF to disable this heuristic entirely.
+#   NB on macOS: GNU is favoured as requested, but Apple's SDK headers can clash
+#   with GCC (e.g. GoogleTest's <mach/*.h>); force clang there with
+#   -DCMAKE_CXX_COMPILER=clang++ if a GCC build of a given target fails.
+# ────────────────────────────────────────────────────────────────
+option(PSOPT_AUTO_COMPILER "Auto-pick a working GNU/Clang/MSVC toolchain if none is specified" ON)
+if(PSOPT_AUTO_COMPILER AND NOT CMAKE_CXX_COMPILER AND NOT DEFINED ENV{CXX} AND NOT DEFINED ENV{CC}
+   AND NOT CMAKE_TOOLCHAIN_FILE)
+  set(_pm_bindirs
+      /opt/local/bin                                   # MacPorts   (favoured on macOS)
+      /opt/homebrew/bin /usr/local/bin                 # Homebrew (arm64 / x86_64)
+      /sw/bin                                          # Fink
+      "$ENV{HOME}/.nix-profile/bin"                    # Nix (per-user profile)
+      /run/current-system/sw/bin                       # Nix (NixOS system)
+      /nix/var/nix/profiles/default/bin                # Nix (default profile)
+      C:/msys64/ucrt64/bin C:/msys64/mingw64/bin       # MSYS2 (Windows, out-of-shell)
+      /ucrt64/bin /mingw64/bin                         # MSYS2 (in MSYS shell)
+      /usr/pkg/bin                                     # NetBSD pkgsrc
+      /usr/local/bin /usr/bin)                         # *BSD / Linux / generic
+  # (C++|C) candidate pairs, most-preferred first: versioned GNU, generic GNU,
+  # OpenBSD egcc/eg++, then Clang.  MSVC is the implicit fallback (leave unset).
+  set(_cxx_cc_pairs
+      "g++-mp-15|gcc-mp-15" "g++-mp-14|gcc-mp-14" "g++-mp-13|gcc-mp-13"   # MacPorts
+      "g++-15|gcc-15" "g++-14|gcc-14" "g++-13|gcc-13" "g++-12|gcc-12" "g++-11|gcc-11"
+      "g++|gcc" "eg++|egcc"                                               # generic GNU / OpenBSD
+      "clang++|clang" "clang++-20|clang-20" "clang++-19|clang-19"
+      "clang++-18|clang-18" "clang++-17|clang-17")
+  foreach(_pair IN LISTS _cxx_cc_pairs)
+    string(REPLACE "|" ";" _pc "${_pair}")
+    list(GET _pc 0 _cxx_name)
+    list(GET _pc 1 _cc_name)
+    find_program(_PSOPT_CXX NAMES ${_cxx_name} HINTS ${_pm_bindirs})
+    find_program(_PSOPT_CC  NAMES ${_cc_name}  HINTS ${_pm_bindirs})
+    if(_PSOPT_CXX AND _PSOPT_CC)
+      set(CMAKE_CXX_COMPILER "${_PSOPT_CXX}" CACHE FILEPATH "C++ compiler auto-selected by PSOPT")
+      set(CMAKE_C_COMPILER   "${_PSOPT_CC}"  CACHE FILEPATH "C compiler auto-selected by PSOPT")
+      message(STATUS "PSOPT auto-selected toolchain: ${_PSOPT_CXX} | ${_PSOPT_CC}")
+      break()
+    endif()
+    unset(_PSOPT_CXX CACHE)
+    unset(_PSOPT_CC CACHE)
+  endforeach()
+  if(NOT CMAKE_CXX_COMPILER)
+    message(STATUS "PSOPT: no GNU/Clang toolchain found in known prefixes; "
+                   "using CMake default (e.g. MSVC on Windows, cc/c++ elsewhere)")
+  endif()
+endif()
+
 project(PSOPT VERSION ${PSOPT_VERSION} LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
