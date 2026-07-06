@@ -1,0 +1,39 @@
+# Linux container ctest for a self-hosted Gitea act_runner backed by Docker
+# (Colima on the macOS host). Each matrix OS maps to a runner docker label
+# (e.g. ubuntu-22.04 -> catthehacker/ubuntu:act-22.04). Dependencies are installed
+# per-distro; the compiler-search CMake picks GNU on Linux (validating that path).
+# Absent optional backends (CASADI/SCIP/pardiso) GTEST_SKIP.
+name: ctest-linux
+
+on:
+  push:
+    paths-ignore: [ '**.md', 'docs/**', 'wiki/**' ]
+  workflow_dispatch:
+
+jobs:
+  ctest-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (apt)
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ gfortran git pkg-config ca-certificates \
+            libeigen3-dev coinor-libipopt-dev libadolc-dev libcolpack-dev \
+            libblas-dev liblapack-dev
+
+      - name: Configure (GNU auto-selected on Linux)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_EXAMPLES=OFF
+
+      - name: Build PSOPT + test suite
+        run: cmake --build build -j$(nproc)
+
+      - name: Run ctest
+        working-directory: build
+        run: ctest --output-on-failure
